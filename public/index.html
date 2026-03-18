@@ -15,11 +15,14 @@
         </header>
 
         <div id="room-selection" class="room-selection card">
-            <h2>Join a Room</h2>
+            <h2>Create or Join a Room</h2>
             <div class="input-group">
-                <input type="text" id="room-id" placeholder="Enter Room Code (e.g., room1)" />
-                <button id="join-btn" class="primary-btn">Join Room</button>
+                <input type="text" id="room-id" placeholder="Room Code (e.g., movie-night)" />
             </div>
+            <div class="input-group">
+                <input type="password" id="room-password" placeholder="Room Password (Optional)" />
+            </div>
+            <button id="join-btn" class="primary-btn" style="width: 100%; margin-bottom: 15px;">Join Room</button>
             <p id="connection-status" class="status-msg"></p>
         </div>
 

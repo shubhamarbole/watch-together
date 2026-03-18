@@ -1,6 +1,6 @@
 # Watch Together Application
 
-A complete application for watching local videos or YouTube videos synchronously with friends in real-time, complete with a live chat system, room user counting, **host controls**, and **bandwidth-free local video syncing** with a synchronized **countdown feature**.
+A complete application for watching local videos or YouTube videos synchronously with friends in real-time, complete with a live chat system, room user counting, **host controls**, **bandwidth-free local video syncing**, a synchronized **countdown feature**, and newly added **Secure Room Passwords**!
 
 ## 1. How to Install Dependencies
 
@@ -12,33 +12,22 @@ A complete application for watching local videos or YouTube videos synchronously
    npm install express socket.io
    ```
 
-## 2. How to Run the Server
+## 2. How to Run the Server locally
 
 1. In your terminal, run the following command to start the server:
    ```bash
-   node server.js
+   npm start
    ```
 2. You should see `Server listening on port 3000` logged in your terminal. This means the backend is ready!
 
-## 3. How to Test with Two Users
+## 3. How to Setup and Join Password-Protected Rooms
 
-1. Open your web browser (e.g., Google Chrome) and go to `http://localhost:3000`.
-2. Open a **second tab** or entirely new browser window, and go to `http://localhost:3000`.
-3. In both instances, type the **same Room Code** (for example, `room1`) and click **Join Room**.
-4. You will immediately notice the right-hand panel says **"2 User(s)"**.
-5. **Testing Host Control:**
-   - The first tab to join will show a blue **HOST** badge next to the room ID.
-   - The second tab will NOT be the host. The video controls are hidden, YouTube inputs are disabled, and clicking the video does nothing.
-   - Try pausing, seeking, or changing the video from the **HOST** tab. Both instances stay perfectly synced, but only the Host drives the car!
-6. **Testing Synchronized Countdown:**
-   - Click the **Start Together** button on the HOST player.
-   - A perfectly synchronized `3... 2... 1...` overlay will show up on both players, and the movie will instantly start on both screens exactly when it reaches 0!
-7. **Testing Local Videos:** 
-   - Click **Choose Video File** to pick a completely local video from your disk. Since it's local to your own browser, **the viewers will also need to click Choose Video File to select their own copy of the downloaded movie**.
-   - No huge video arrays are streamed over the internet.
-8. **Testing Chat:** 
-   - Type a message in the chat box on the right and hit **Send** (or press Enter).
-   - Watch the message instantly appear on the other tab!
+1. Open your web browser and go to your live URL (or `http://localhost:3000`).
+2. Type a **Room Code** (e.g., `movie-night`).
+3. Type a **Room Password** (e.g., `secret123`).
+4. Click **Join Room**.
+5. Because you are the first person, you automatically create the room and become the **HOST**, and the password you typed is locked into that room.
+6. When your friends want to join, they type the exact same Room Code `movie-night` and your exact password `secret123` to enter as viewers!
 
 ---
 
@@ -86,6 +75,7 @@ const io = new Server(server);
 
 // Store hosts for each room: { roomId: socket.id }
 const roomHosts = {};
+const roomPasswords = {}; // Protect rooms with passwords
 
 // Serve static files from the public directory
 app.use(express.static(path.join(__dirname, 'public')));
@@ -102,7 +92,19 @@ app.get('/api/videos', (req, res) => {
 
 io.on('connection', (socket) => {
     // Join a room
-    socket.on('join-room', (roomId) => {
+    socket.on('join-room', ({ roomId, password }) => {
+        const targetRoom = io.sockets.adapter.rooms.get(roomId);
+        const targetCount = targetRoom ? targetRoom.size : 0;
+        
+        if (targetCount > 0) {
+            if (roomPasswords[roomId] !== password) {
+                socket.emit('join-error', 'Incorrect room password!');
+                return;
+            }
+        } else {
+            roomPasswords[roomId] = password || '';
+        }
+
         // Leave previous room if any
         if (socket.roomId) {
             socket.leave(socket.roomId);
@@ -118,6 +120,7 @@ io.on('connection', (socket) => {
                     io.to(nextHost).emit('is-host', true);
                 } else {
                     delete roomHosts[socket.roomId];
+                    delete roomPasswords[socket.roomId];
                 }
             }
         }
@@ -132,6 +135,8 @@ io.on('connection', (socket) => {
         if (count === 1) {
             roomHosts[roomId] = socket.id;
         }
+
+        socket.emit('join-success', roomId);
 
         // Broadcast updated user count to everyone
         io.to(roomId).emit('update-user-count', count);
@@ -197,6 +202,7 @@ io.on('connection', (socket) => {
                     io.to(nextHost).emit('is-host', true);
                 } else {
                     delete roomHosts[socket.roomId];
+                    delete roomPasswords[socket.roomId];
                 }
             }
         }
@@ -228,11 +234,14 @@ server.listen(PORT, () => {
         </header>
 
         <div id="room-selection" class="room-selection card">
-            <h2>Join a Room</h2>
+            <h2>Create or Join a Room</h2>
             <div class="input-group">
-                <input type="text" id="room-id" placeholder="Enter Room Code (e.g., room1)" />
-                <button id="join-btn" class="primary-btn">Join Room</button>
+                <input type="text" id="room-id" placeholder="Room Code (e.g., movie-night)" />
             </div>
+            <div class="input-group">
+                <input type="password" id="room-password" placeholder="Room Password (Optional)" />
+            </div>
+            <button id="join-btn" class="primary-btn" style="width: 100%; margin-bottom: 15px;">Join Room</button>
             <p id="connection-status" class="status-msg"></p>
         </div>
 
@@ -416,7 +425,25 @@ input[type="text"]:focus {
 .status-msg {
     color: var(--text-secondary);
     font-size: 0.9rem;
-    height: 20px;
+    min-height: 20px;
+}
+.status-error {
+    color: #ff7b72;
+    font-weight: 500;
+}
+input[type="password"] {
+    flex: 1;
+    padding: 12px 16px;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: 8px;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+input[type="password"]:focus {
+    border-color: var(--accent-color);
 }
 
 .hidden {
@@ -434,6 +461,15 @@ input[type="text"]:focus {
     .app-container {
         flex-direction: column;
     }
+}
+
+@media (max-width: 600px) {
+    header h1 { font-size: 2rem; }
+    .video-switcher { flex-direction: column; gap: 8px; }
+    .video-switcher > *, .primary-btn { width: 100%; box-sizing: border-box; }
+    .chat-container { min-height: 350px; }
+    body { padding: 15px 10px; }
+    .countdown-overlay { font-size: 4rem; }
 }
 
 /* Video Section */
@@ -640,6 +676,7 @@ const socket = io();
 const roomSelection = document.getElementById('room-selection');
 const appContainer = document.getElementById('app-container');
 const roomIdInput = document.getElementById('room-id');
+const passwordInput = document.getElementById('room-password');
 const joinBtn = document.getElementById('join-btn');
 const connectionStatus = document.getElementById('connection-status');
 const currentRoomDisplay = document.getElementById('current-room');
@@ -726,15 +763,28 @@ localFilePicker.addEventListener('change', (e) => {
 // Join Room Logic
 joinBtn.addEventListener('click', () => {
     const roomId = roomIdInput.value.trim();
+    const password = passwordInput.value.trim();
     if (roomId) {
-        currentRoom = roomId;
-        socket.emit('join-room', roomId);
-        roomSelection.classList.add('hidden');
-        appContainer.classList.remove('hidden');
-        currentRoomDisplay.textContent = roomId;
+        socket.emit('join-room', { roomId, password });
+        connectionStatus.textContent = 'Joining...';
+        connectionStatus.classList.remove('status-error');
     } else {
         connectionStatus.textContent = 'Please enter a valid room code.';
+        connectionStatus.classList.add('status-error');
     }
+});
+
+socket.on('join-success', (roomId) => {
+    currentRoom = roomId;
+    roomSelection.classList.add('hidden');
+    appContainer.classList.remove('hidden');
+    currentRoomDisplay.textContent = roomId;
+    connectionStatus.textContent = '';
+});
+
+socket.on('join-error', (errorMsg) => {
+    connectionStatus.textContent = errorMsg;
+    connectionStatus.classList.add('status-error');
 });
 
 // Update User Count & Host Status

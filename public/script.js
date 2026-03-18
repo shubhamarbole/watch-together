@@ -4,6 +4,7 @@ const socket = io();
 const roomSelection = document.getElementById('room-selection');
 const appContainer = document.getElementById('app-container');
 const roomIdInput = document.getElementById('room-id');
+const passwordInput = document.getElementById('room-password');
 const joinBtn = document.getElementById('join-btn');
 const connectionStatus = document.getElementById('connection-status');
 const currentRoomDisplay = document.getElementById('current-room');
@@ -90,15 +91,28 @@ localFilePicker.addEventListener('change', (e) => {
 // Join Room Logic
 joinBtn.addEventListener('click', () => {
     const roomId = roomIdInput.value.trim();
+    const password = passwordInput.value.trim();
     if (roomId) {
-        currentRoom = roomId;
-        socket.emit('join-room', roomId);
-        roomSelection.classList.add('hidden');
-        appContainer.classList.remove('hidden');
-        currentRoomDisplay.textContent = roomId;
+        socket.emit('join-room', { roomId, password });
+        connectionStatus.textContent = 'Joining...';
+        connectionStatus.classList.remove('status-error');
     } else {
         connectionStatus.textContent = 'Please enter a valid room code.';
+        connectionStatus.classList.add('status-error');
     }
+});
+
+socket.on('join-success', (roomId) => {
+    currentRoom = roomId;
+    roomSelection.classList.add('hidden');
+    appContainer.classList.remove('hidden');
+    currentRoomDisplay.textContent = roomId;
+    connectionStatus.textContent = '';
+});
+
+socket.on('join-error', (errorMsg) => {
+    connectionStatus.textContent = errorMsg;
+    connectionStatus.classList.add('status-error');
 });
 
 // Update User Count & Host Status

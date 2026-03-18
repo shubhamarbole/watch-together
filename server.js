@@ -10,6 +10,7 @@ const io = new Server(server);
 
 // Store hosts for each room: { roomId: socket.id }
 const roomHosts = {};
+const roomPasswords = {}; // Protect rooms with passwords
 
 // Serve static files from the public directory
 app.use(express.static(path.join(__dirname, 'public')));
@@ -26,7 +27,19 @@ app.get('/api/videos', (req, res) => {
 
 io.on('connection', (socket) => {
     // Join a room
-    socket.on('join-room', (roomId) => {
+    socket.on('join-room', ({ roomId, password }) => {
+        const targetRoom = io.sockets.adapter.rooms.get(roomId);
+        const targetCount = targetRoom ? targetRoom.size : 0;
+        
+        if (targetCount > 0) {
+            if (roomPasswords[roomId] !== password) {
+                socket.emit('join-error', 'Incorrect room password!');
+                return;
+            }
+        } else {
+            roomPasswords[roomId] = password || '';
+        }
+
         // Leave previous room if any
         if (socket.roomId) {
             socket.leave(socket.roomId);
@@ -42,6 +55,7 @@ io.on('connection', (socket) => {
                     io.to(nextHost).emit('is-host', true);
                 } else {
                     delete roomHosts[socket.roomId];
+                    delete roomPasswords[socket.roomId];
                 }
             }
         }
@@ -56,6 +70,8 @@ io.on('connection', (socket) => {
         if (count === 1) {
             roomHosts[roomId] = socket.id;
         }
+
+        socket.emit('join-success', roomId);
 
         // Broadcast updated user count to everyone
         io.to(roomId).emit('update-user-count', count);
@@ -121,6 +137,7 @@ io.on('connection', (socket) => {
                     io.to(nextHost).emit('is-host', true);
                 } else {
                     delete roomHosts[socket.roomId];
+                    delete roomPasswords[socket.roomId];
                 }
             }
         }
