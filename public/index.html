@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Watch Together</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Watch Together</h1>
+            <p>Sync your video playback and chat with friends in real-time.</p>
+        </header>
+
+        <div id="room-selection" class="room-selection card">
+            <h2>Join a Room</h2>
+            <div class="input-group">
+                <input type="text" id="room-id" placeholder="Enter Room Code (e.g., room1)" />
+                <button id="join-btn" class="primary-btn">Join Room</button>
+            </div>
+            <p id="connection-status" class="status-msg"></p>
+        </div>
+
+        <div id="app-container" class="app-container hidden">
+            <!-- Left Side: Video Player -->
+            <div id="video-container" class="video-container card">
+                <div class="room-info">
+                    <span>Room: <strong id="current-room"></strong></span>
+                    <span id="host-badge" class="host-badge hidden">HOST</span>
+                    <span class="viewers-badge"><span id="user-count">1</span> User(s)</span>
+                    <span class="sync-status text-success">Synced</span>
+                </div>
+                
+                <div class="video-switcher">
+                    <input type="text" id="youtube-url" placeholder="Paste YouTube Link here...">
+                    <button id="load-yt-btn" class="secondary-btn">Load YouTube</button>
+                    
+                    <input type="file" id="local-file-picker" accept="video/*" class="secondary-btn" title="Choose a local video file">
+                    <button id="start-together-btn" class="primary-btn hidden">Start Together</button>
+                </div>
+
+                <!-- Local Video Player -->
+                <video id="video-player" controls preload="auto">
+                    <source src="" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+                
+                <!-- YouTube Video Player Container -->
+                <div id="yt-player-container" class="hidden">
+                    <div id="yt-overlay" class="hidden" title="Only the host can control playback."></div>
+                    <div id="yt-player"></div>
+                </div>
+
+                <div class="instructions">
+                    <p>Note: Each viewer must use the <strong>Choose Video File</strong> button to select their downloaded copy of the movie from their own computer.</p>
+                </div>
+                
+                <!-- Countdown Overlay -->
+                <div id="countdown-overlay" class="countdown-overlay hidden">3</div>
+            </div>
+
+            <!-- Right Side: Chat System -->
+            <div id="chat-container" class="chat-container card">
+                <h3>Live Chat</h3>
+                <div id="chat-messages" class="chat-messages">
+                    <div class="chat-msg system-msg">Welcome to the room!</div>
+                </div>
+                <div class="chat-input-group">
+                    <input type="text" id="chat-input" placeholder="Type a message..." />
+                    <button id="send-btn" class="primary-btn">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- YouTube IFrame API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
+
+    <!-- Socket.io client script -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
