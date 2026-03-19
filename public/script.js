@@ -170,8 +170,9 @@ chatInput.addEventListener('keypress', (e) => {
 function sendMessage() {
     const text = chatInput.value.trim();
     if (text) {
-        addMessage(text, true);
-        socket.emit('chat-message', { roomId: currentRoom, message: text });
+        addMessage(`You: ${text}`, true);
+        const sender = isHost ? "Host" : "User";
+        socket.emit('chat-message', { roomId: currentRoom, message: `${sender}: ${text}` });
         chatInput.value = '';
     }
 }
