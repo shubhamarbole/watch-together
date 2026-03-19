@@ -286,9 +286,20 @@ socket.on('seek', (remoteTime) => {
     setActiveTime(remoteTime);
 });
 
+const SYNC_INTERVAL_MS = 500;
+const SYNC_THRESHOLD_SEC = 0.5;
+const NETWORK_DELAY_COMPENSATION_SEC = 0.3;
+
 socket.on('sync', (remoteTime) => {
+    if (isHost) return; // Viewers only receive sync from host
     isRemoteEvent = true;
-    if (Math.abs(getActiveTime() - remoteTime) > 1.5) setActiveTime(remoteTime);
+    const currentTime = getActiveTime();
+    const compensatedTime = remoteTime + NETWORK_DELAY_COMPENSATION_SEC;
+    
+    // Smooth sync: only adjust if the time difference is greater than the threshold
+    if (Math.abs(currentTime - compensatedTime) > SYNC_THRESHOLD_SEC) {
+        setActiveTime(compensatedTime);
+    }
 });
 
 
@@ -328,4 +339,4 @@ setInterval(() => {
         currentTime = videoPlayer.currentTime;
     }
     if (isPlaying) socket.emit('sync', { roomId: currentRoom, time: currentTime });
-}, 5000);
+}, SYNC_INTERVAL_MS);
