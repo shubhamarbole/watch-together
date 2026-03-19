@@ -90,29 +90,24 @@ io.on('connection', (socket) => {
         return roomHosts[roomId] === socket.id;
     }
 
-    // Video events - restricted to host only!
+    // Video events - anyone can control now!
     socket.on('play', ({ roomId, time }) => {
-        if (!isHost(socket, roomId)) return;
         socket.to(roomId).emit('play', time);
     });
 
     socket.on('pause', ({ roomId, time }) => {
-        if (!isHost(socket, roomId)) return;
         socket.to(roomId).emit('pause', time);
     });
 
     socket.on('seek', ({ roomId, time }) => {
-        if (!isHost(socket, roomId)) return;
         socket.to(roomId).emit('seek', time);
     });
 
     socket.on('change-video', ({ roomId, type, videoId }) => {
-        if (!isHost(socket, roomId)) return;
         socket.to(roomId).emit('change-video', { type, videoId });
     });
     
     socket.on('start-countdown', (roomId) => {
-        if (!isHost(socket, roomId)) return;
         io.to(roomId).emit('start-countdown');
     });
     

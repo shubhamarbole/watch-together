@@ -53,21 +53,39 @@ function onYouTubeIframeAPIReady() {
 
 function extractVideoID(url) {
     let videoId = null;
-    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-    const match = url.match(regex);
-    if (match && match[1]) {
-        videoId = match[1];
+    try {
+        const parsed = new URL(url);
+        if (parsed.hostname.includes('youtube.com')) {
+            if (parsed.searchParams.has('v')) {
+                videoId = parsed.searchParams.get('v');
+            } else if (parsed.pathname.startsWith('/embed/')) {
+                videoId = parsed.pathname.split('/embed/')[1];
+            } else if (parsed.pathname.startsWith('/shorts/')) {
+                videoId = parsed.pathname.split('/shorts/')[1];
+            } else if (parsed.pathname.startsWith('/v/')) {
+                videoId = parsed.pathname.split('/v/')[1];
+            }
+        } else if (parsed.hostname.includes('youtu.be')) {
+            videoId = parsed.pathname.substring(1);
+        }
+    } catch(e) {}
+    
+    if (!videoId) {
+        const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+        const match = url.match(regex);
+        if (match && match[1]) videoId = match[1];
     }
+    if (videoId && videoId.length > 11) videoId = videoId.substring(0, 11);
     return videoId;
 }
 
 function onPlayerStateChange(event) {
     if (activePlayerType !== 'youtube') return;
     if (event.data === YT.PlayerState.PLAYING) {
-        if (!isRemoteEvent && isHost) socket.emit('play', { roomId: currentRoom, time: ytPlayer.getCurrentTime() });
+        if (!isRemoteEvent) socket.emit('play', { roomId: currentRoom, time: ytPlayer.getCurrentTime() });
         isRemoteEvent = false;
     } else if (event.data === YT.PlayerState.PAUSED) {
-        if (!isRemoteEvent && isHost) socket.emit('pause', { roomId: currentRoom, time: ytPlayer.getCurrentTime() });
+        if (!isRemoteEvent) socket.emit('pause', { roomId: currentRoom, time: ytPlayer.getCurrentTime() });
         isRemoteEvent = false;
     }
 }
@@ -81,10 +99,8 @@ localFilePicker.addEventListener('change', (e) => {
         videoPlayer.src = fileURL;
         videoPlayer.load();
         
-        // If host, notify room that we switched to local
-        if (isHost) {
-            socket.emit('change-video', { roomId: currentRoom, type: 'local', videoId: null });
-        }
+        // Notify room that we switched to local
+        socket.emit('change-video', { roomId: currentRoom, type: 'local', videoId: null });
     }
 });
 
@@ -122,26 +138,17 @@ socket.on('update-user-count', (count) => {
 
 socket.on('is-host', (status) => {
     isHost = status;
+    // Everyone can control
+    youtubeUrlInput.disabled = false;
+    loadYtBtn.disabled = false;
+    startTogetherBtn.classList.remove('hidden');
+    videoPlayer.setAttribute('controls', 'controls');
+    ytOverlay.classList.add('hidden');
+    
     if (isHost) {
-        // UI
         hostBadge.classList.remove('hidden');
-        youtubeUrlInput.disabled = false;
-        loadYtBtn.disabled = false;
-        startTogetherBtn.classList.remove('hidden');
-        
-        // Video Controls
-        videoPlayer.setAttribute('controls', 'controls');
-        ytOverlay.classList.add('hidden');
     } else {
-        // UI
         hostBadge.classList.add('hidden');
-        youtubeUrlInput.disabled = true;
-        loadYtBtn.disabled = true;
-        startTogetherBtn.classList.add('hidden');
-        
-        // Video Controls
-        videoPlayer.removeAttribute('controls');
-        ytOverlay.classList.remove('hidden');
     }
 });
 
@@ -176,7 +183,6 @@ socket.on('chat-message', (msg) => {
 
 // Switcher logic
 loadYtBtn.addEventListener('click', () => {
-    if (!isHost) return;
     const url = youtubeUrlInput.value.trim();
     if (!url) return;
     const videoId = extractVideoID(url);
@@ -220,8 +226,6 @@ function setActiveTime(time) {
 
 // Countdown Logic
 startTogetherBtn.addEventListener('click', () => {
-    if (!isHost) return;
-    
     // reset to 0 before starting
     if (activePlayerType === 'youtube' && isYtReady && ytPlayer.seekTo) {
         ytPlayer.seekTo(0, true);
@@ -295,7 +299,6 @@ videoPlayer.addEventListener('play', () => {
         isRemoteEvent = false;
         return;
     }
-    if (!isHost) { videoPlayer.pause(); return; }
     if (activePlayerType === 'local') socket.emit('play', { roomId: currentRoom, time: videoPlayer.currentTime });
 });
 videoPlayer.addEventListener('pause', () => {
@@ -303,7 +306,6 @@ videoPlayer.addEventListener('pause', () => {
         isRemoteEvent = false;
         return;
     }
-    if (!isHost) return;
     if (activePlayerType === 'local') socket.emit('pause', { roomId: currentRoom, time: videoPlayer.currentTime });
 });
 videoPlayer.addEventListener('seeked', () => {
@@ -311,7 +313,6 @@ videoPlayer.addEventListener('seeked', () => {
         isRemoteEvent = false;
         return;
     }
-    if (!isHost) return;
     if (activePlayerType === 'local') socket.emit('seek', { roomId: currentRoom, time: videoPlayer.currentTime });
 });
 
