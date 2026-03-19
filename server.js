@@ -11,6 +11,7 @@ const io = new Server(server);
 // Store hosts for each room: { roomId: socket.id }
 const roomHosts = {};
 const roomPasswords = {}; // Protect rooms with passwords
+const roomState = {};     // { roomId: { type, videoId, time, isPlaying, lastUpdate } }
 
 // Serve static files from the public directory
 app.use(express.static(path.join(__dirname, 'public')));
@@ -78,6 +79,20 @@ io.on('connection', (socket) => {
 
         // Notify if they are host
         socket.emit('is-host', roomHosts[roomId] === socket.id);
+
+        // Send current room state if available
+        if (roomState[roomId] && roomState[roomId].type) {
+            socket.emit('change-video', { roomId, type: roomState[roomId].type, videoId: roomState[roomId].videoId });
+            setTimeout(() => {
+                let timeToSync = roomState[roomId].time || 0;
+                if (roomState[roomId].isPlaying) {
+                    timeToSync += (Date.now() - roomState[roomId].lastUpdate) / 1000;
+                    socket.emit('play', timeToSync);
+                } else {
+                    socket.emit('pause', timeToSync);
+                }
+            }, 1000);
+        }
     });
 
     // Chat system - anyone can chat
@@ -92,28 +107,52 @@ io.on('connection', (socket) => {
 
     // Video events - anyone can control now!
     socket.on('play', ({ roomId, time }) => {
+        if (!roomState[roomId]) roomState[roomId] = {};
+        roomState[roomId].isPlaying = true;
+        roomState[roomId].time = time;
+        roomState[roomId].lastUpdate = Date.now();
         socket.to(roomId).emit('play', time);
     });
 
     socket.on('pause', ({ roomId, time }) => {
+        if (!roomState[roomId]) roomState[roomId] = {};
+        roomState[roomId].isPlaying = false;
+        roomState[roomId].time = time;
+        roomState[roomId].lastUpdate = Date.now();
         socket.to(roomId).emit('pause', time);
     });
 
     socket.on('seek', ({ roomId, time }) => {
+        if (!roomState[roomId]) roomState[roomId] = {};
+        roomState[roomId].time = time;
+        roomState[roomId].lastUpdate = Date.now();
         socket.to(roomId).emit('seek', time);
     });
 
     socket.on('change-video', ({ roomId, type, videoId }) => {
+        if (!roomState[roomId]) roomState[roomId] = {};
+        roomState[roomId].type = type;
+        roomState[roomId].videoId = videoId;
+        roomState[roomId].time = 0;
+        roomState[roomId].isPlaying = true;
+        roomState[roomId].lastUpdate = Date.now();
         socket.to(roomId).emit('change-video', { type, videoId });
     });
     
     socket.on('start-countdown', (roomId) => {
+        if (!roomState[roomId]) roomState[roomId] = {};
+        roomState[roomId].time = 0;
+        roomState[roomId].isPlaying = true;
+        roomState[roomId].lastUpdate = Date.now();
         io.to(roomId).emit('start-countdown');
     });
     
     // Auto-sync
     socket.on('sync', ({ roomId, time }) => {
         if (!isHost(socket, roomId)) return;
+        if (!roomState[roomId]) roomState[roomId] = {};
+        roomState[roomId].time = time;
+        roomState[roomId].lastUpdate = Date.now();
         socket.to(roomId).emit('sync', time);
     });
 

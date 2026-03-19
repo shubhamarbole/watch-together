@@ -203,7 +203,6 @@ function switchVideo(type, videoId) {
         ytPlayerContainer.classList.remove('hidden');
         if (isYtReady && videoId) {
             ytPlayer.loadVideoById(videoId);
-            ytPlayer.pauseVideo();
         }
     } else {
         if (isYtReady && ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
